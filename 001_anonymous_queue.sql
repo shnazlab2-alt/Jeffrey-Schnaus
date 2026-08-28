@@ -1,6 +1,4 @@
-  supabase/migrations/
- 001_anonymous_queue.sql
--- Migration 001: Anonymous Queue & Matching Schema
+Migration 001: Anonymous Queue & Matching Schema
 CREATE TABLE public.anonymous_match_queue (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
