@@ -1,0 +1,25 @@
+// File: lib/features/matching/anonymous_profile.dart
+class AnonymousProfile {
+  final String matchId;
+  final String anonymousName; 
+  final String avatarIcon;   
+  final String responseExcerpt;
+
+  AnonymousProfile({
+    required this.matchId,
+    required this.anonymousName,
+    required this.avatarIcon,
+    required this.responseExcerpt,
+  });
+
+  static String generateAlias(String userId, String promptId) {
+    final adjectives = ['Crisp', 'Golden', 'Spiced', 'Sweet', 'Rustic'];
+    final varieties = ['Honeycrisp', 'Fuji', 'Gala', 'McIntosh', 'Empire'];
+    
+    final hash = (userId + promptId).hashCode.abs();
+    final adj = adjectives[hash % adjectives.length];
+    final varName = varieties[(hash ~/ adjectives.length) % varieties.length];
+    
+    return '$adj $varName';
+  }
+}
