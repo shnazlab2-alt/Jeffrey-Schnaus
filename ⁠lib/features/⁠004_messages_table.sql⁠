@@ -1,0 +1,10 @@
+CREATE TABLE public.messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    match_id UUID REFERENCES public.anonymous_matches(id) ON DELETE CASCADE NOT NULL,
+    sender_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable real-time listening on messages table
+ALTER PUBLICATION supabase_realtime ADD TABLE public.messages;
