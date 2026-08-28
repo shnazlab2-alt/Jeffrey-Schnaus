@@ -1,0 +1,90 @@
+// File: lib/features/matching/chat_screen.dart
+import 'package:flutter/material.dart';
+
+class AnonymousChatScreen extends StatefulWidget {
+  final String matchId;
+  final String peerAlias;
+
+  const AnonymousChatScreen({
+    super.key,
+    required this.matchId,
+    required this.peerAlias,
+  });
+
+  @override
+  State<AnonymousChatScreen> createState() => _AnonymousChatScreenState();
+}
+
+class _AnonymousChatScreenState extends State<AnonymousChatScreen> {
+  final TextEditingController _messageController = TextEditingController();
+  final List<Map<String, String>> _messages = [];
+
+  void _sendMessage() {
+    if (_messageController.text.trim().isEmpty) return;
+    setState(() {
+      _messages.add({
+        'sender': 'me',
+        'text': _messageController.text.trim(),
+      });
+      _messageController.clear();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Chat with ${widget.peerAlias}'),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16.0),
+              itemCount: _messages.length,
+              itemBuilder: (context, index) {
+                final msg = _messages[index];
+                final isMe = msg['sender'] == 'me';
+                return Align(
+                  alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 4.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
+                    decoration: BoxDecoration(
+                      color: isMe ? Colors.green[400] : Colors.grey[300],
+                      borderRadius: BorderRadius.circular(16.0),
+                    ),
+                    child: Text(
+                      msg['text'] ?? '',
+                      style: TextStyle(color: isMe ? Colors.white : Colors.black87),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _messageController,
+                    decoration: const InputDecoration(
+                      hintText: 'Type an anonymous message...',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.send),
+                  onPressed: _sendMessage,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
