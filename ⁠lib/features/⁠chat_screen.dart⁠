@@ -1,5 +1,6 @@
-// File: lib/features/matching/chat_screen.dart
+	// File: lib/features/matching/chat_screen.dart
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AnonymousChatScreen extends StatefulWidget {
   final String matchId;
@@ -17,74 +18,146 @@ class AnonymousChatScreen extends StatefulWidget {
 
 class _AnonymousChatScreenState extends State<AnonymousChatScreen> {
   final TextEditingController _messageController = TextEditingController();
-  final List<Map<String, String>> _messages = [];
+  final SupabaseClient _supabase = Supabase.instance.client;
+  RealtimeChannel? _chatChannel;
+  final List<Map<String, dynamic>> _messages = [];
+  bool _isLoading = true;
 
-  void _sendMessage() {
-    if (_messageController.text.trim().isEmpty) return;
-    setState(() {
-      _messages.add({
-        'sender': 'me',
-        'text': _messageController.text.trim(),
+  @override
+  void initState() {
+    super.initState();
+    _fetchInitialMessages();
+    _subscribeToRealtimeMessages();
+  }
+
+  Future<void> _fetchInitialMessages() async {
+    final response = await _supabase
+        .from('messages')
+        .select()
+        .eq('match_id', widget.matchId)
+        .order('created_at', ascending: true);
+
+    if (mounted) {
+      setState(() {
+        _messages.addAll(List<Map<String, dynamic>>.from(response));
+        _isLoading = false;
       });
-      _messageController.clear();
+    }
+  }
+
+  void _subscribeToRealtimeMessages() {
+    _chatChannel = _supabase
+        .channel('public:messages:match_id=eq.${widget.matchId}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'messages',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'match_id',
+            value: widget.matchId,
+          ),
+          callback: (payload) {
+            final newMessage = payload.newRecord;
+            if (mounted) {
+              setState(() {
+                _messages.add(newMessage);
+              });
+            }
+          },
+        )
+        .subscribe();
+  }
+
+  Future<void> _sendMessage() async {
+    final text = _messageController.text.trim();
+    if (text.isEmpty) return;
+
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    _messageController.clear();
+
+    await _supabase.from('messages').insert({
+      'match_id': widget.matchId,
+      'sender_id': userId,
+      'content': text,
     });
   }
 
   @override
+  void dispose() {
+    if (_chatChannel != null) {
+      _supabase.removeChannel(_chatChannel!);
+    }
+    _messageController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final currentUserId = _supabase.auth.currentUser?.id;
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Chat with ${widget.peerAlias}'),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16.0),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final msg = _messages[index];
-                final isMe = msg['sender'] == 'me';
-                return Align(
-                  alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4.0),
-                    padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
-                    decoration: BoxDecoration(
-                      color: isMe ? Colors.green[400] : Colors.grey[300],
-                      borderRadius: BorderRadius.circular(16.0),
-                    ),
-                    child: Text(
-                      msg['text'] ?? '',
-                      style: TextStyle(color: isMe ? Colors.white : Colors.black87),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: const InputDecoration(
-                      hintText: 'Type an anonymous message...',
-                      border: OutlineInputBorder(),
-                    ),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16.0),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      final msg = _messages[index];
+                      final isMe = msg['sender_id'] == currentUserId;
+                      return Align(
+                        alignment:
+                            isMe ? Alignment.centerRight : Alignment.centerLeft,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(vertical: 4.0),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14.0, vertical: 10.0),
+                          decoration: BoxDecoration(
+                            color: isMe ? Colors.green[400] : Colors.grey[300],
+                            borderRadius: BorderRadius.circular(16.0),
+                          ),
+                          child: Text(
+                            msg['content'] ?? '',
+                            style: TextStyle(
+                              color: isMe ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: _sendMessage,
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _messageController,
+                          decoration: const InputDecoration(
+                            hintText: 'Type an anonymous message...',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.send),
+                        onPressed: _sendMessage,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
-        ],
-      ),
     );
   }
 }
+// 
