@@ -1,4 +1,5 @@
-001_anonymous_queue.sql
+  supabase/migrations/
+ 001_anonymous_queue.sql
 -- Migration 001: Anonymous Queue & Matching Schema
 CREATE TABLE public.anonymous_match_queue (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
